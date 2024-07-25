@@ -2,6 +2,10 @@ from cell import Cell
 import time
 import random
 
+# delay the animation with x seconds for the user to be able to see the process
+animation_delay_create = 0.008
+animation_delay_solve = 0.06
+
 class Maze():
   def __init__(self, x1, y1, num_rows, num_cols, cell_size_x, cell_size_y, win=None, seed = None):
     self._x1 = x1
@@ -18,6 +22,7 @@ class Maze():
     self._create_cells()
     self._break_entrance_and_exit()
     self._break_walls_r(0, 0)
+    self._reset_cells_visited()
     
   def _create_cells(self):
     for i in range(self._num_cols):
@@ -38,13 +43,17 @@ class Maze():
     x2 = x1 + self._cell_size_x
     y2 = y1 + self._cell_size_y
     self._cells[i][j].draw(x1, y1, x2, y2)
-    self._animate()
+    self._animate(action="create")
     
-  def _animate(self):
+  def _animate(self, action=None):
     if self._win is None:
       return
     self._win.redraw()
-    time.sleep(0.02) # only if you want to see animation
+    if action == "create":
+      time.sleep(animation_delay_create) # see the animation of creating the maze 
+    if action == "solve":
+      time.sleep(animation_delay_solve) # see the animation of attempting to solve the maze
+    # if no action is provided there will be no delay to see the animation
   
   def _break_entrance_and_exit(self):
     self._cells[0][0].has_top_wall = False
@@ -99,3 +108,60 @@ class Maze():
 
       # recursively visit the next cell
       self._break_walls_r(next_index[0], next_index[1])
+      
+  def _reset_cells_visited(self):
+    for i in range(self._num_cols):
+      for j in range(self._num_rows):
+        self._cells[i][j].visited = False
+  
+    # returns True if this is the end cell, OR if it leads to the end cell.
+    # returns False if this is a loser cell.
+  def _solve_r(self, i, j):
+    self._animate("solve")
+
+    self._cells[i][j].visited = True
+
+    # we got to the last cell and solved the maze
+    if i == self._num_cols - 1 and j == self._num_rows - 1:
+      return True
+
+     # move down if there is no wall and it hasn't been visited
+    if (j < self._num_rows - 1 and not self._cells[i][j].has_bottom_wall and not self._cells[i][j + 1].visited):
+      self._cells[i][j].draw_move(self._cells[i][j + 1])
+      if self._solve_r(i, j + 1):
+        return True
+      else:
+        self._cells[i][j].draw_move(self._cells[i][j + 1], True)
+        
+    # move right if there is no wall and it hasn't been visited
+    if (i < self._num_cols - 1 and not self._cells[i][j].has_right_wall and not self._cells[i + 1][j].visited):
+      self._cells[i][j].draw_move(self._cells[i + 1][j])
+      if self._solve_r(i + 1, j):
+        return True
+      else:
+        self._cells[i][j].draw_move(self._cells[i + 1][j], True)
+    
+    # move up if there is no wall and it hasn't been visited
+    if (j > 0 and not self._cells[i][j].has_top_wall and not self._cells[i][j - 1].visited):
+      self._cells[i][j].draw_move(self._cells[i][j - 1])
+      if self._solve_r(i, j - 1):
+        return True
+      else:
+        self._cells[i][j].draw_move(self._cells[i][j - 1], True)
+        
+    # move left if there is no wall and it hasn't been visited
+    if (i > 0 and not self._cells[i][j].has_left_wall and not self._cells[i - 1][j].visited):
+      self._cells[i][j].draw_move(self._cells[i - 1][j])
+      if self._solve_r(i - 1, j):
+        return True
+      else:
+        self._cells[i][j].draw_move(self._cells[i - 1][j], True)
+
+    # if we get here the path was blocked and we should reurn to the previous cell 
+    # until we get to a cell with a different possible unvisited path
+    return False
+
+  # call the depth first recursive function
+  def solve(self):
+    return self._solve_r(0, 0)
+    
